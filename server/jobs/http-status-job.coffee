@@ -1,4 +1,5 @@
 request = Meteor.npmRequire('hyperdirect')(10)
+dotize = Meteor.npmRequire('dotize')
 
 @HttpStatusJob =
   create: (jobData) ->
@@ -23,6 +24,7 @@ request = Meteor.npmRequire('hyperdirect')(10)
 
     stream.on 'response', Meteor.bindEnvironment (response) =>
       if response.statusCode >= 200 and response.statusCode < 300
+        HttpStatusJob.getAppVersion job if job.data.apiVersionUrl
         if job.data.regex
           result = ""
           response.on 'data', (data) -> result = result + data.toString()
@@ -39,6 +41,12 @@ request = Meteor.npmRequire('hyperdirect')(10)
           FailJob job, callback
         else
           @retryJob job, callback, retryCount
+
+  getAppVersion: (job) ->
+    HTTP.get job.data.apiVersionUrl, (err, res) ->
+      console.error err if err
+      appVersion = (dotize.convert res)[job.data.versionField]
+      Services.update {_id: job.data._id}, $set: { appVersion: appVersion }
 
   retryJob: (job, callback, retryCount) ->
     Meteor.setTimeout =>
